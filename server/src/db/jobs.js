@@ -20,6 +20,22 @@ const fallback = (() => {
     return Array.from(jobs.values());
   }
 
+  function updateJobItem(jobId, itemId, patch = {}) {
+    const rec = jobs.get(String(jobId));
+    if (!rec) return null;
+    const it = rec.items.find((x) => x.id === String(itemId));
+    if (!it) return null;
+    Object.assign(it, patch);
+    return it;
+  }
+
+  function updateJobStatus(jobId, status) {
+    const rec = jobs.get(String(jobId));
+    if (!rec) return null;
+    rec.status = status;
+    return rec;
+  }
+
   return { createJob, getJob, listJobs };
 })();
 
@@ -57,6 +73,20 @@ async function getJob(id) {
   };
 }
 
+async function updateJobItem(jobId, itemId, patch = {}) {
+  if (!isEnabled()) return fallback.updateJobItem(jobId, itemId, patch);
+  const prisma = getClient();
+  const updated = await prisma.jobItem.update({ where: { id: String(itemId) }, data: { ...patch } });
+  return { id: updated.id, hash: updated.hash, status: updated.status, uploadUrl: updated.uploadUrl };
+}
+
+async function updateJobStatus(jobId, status) {
+  if (!isEnabled()) return fallback.updateJobStatus(jobId, status);
+  const prisma = getClient();
+  const updated = await prisma.job.update({ where: { id: String(jobId) }, data: { status } });
+  return { id: updated.id, status: updated.status };
+}
+
 async function listJobs() {
   if (!isEnabled()) return fallback.listJobs();
   const prisma = getClient();
@@ -64,4 +94,4 @@ async function listJobs() {
   return rows.map((rec) => ({ id: rec.id, fileId: rec.fileId, status: rec.status, createdAt: rec.createdAt.toISOString(), items: rec.items.map((it) => ({ id: it.id, hash: it.hash, status: it.status, uploadUrl: it.uploadUrl })) }));
 }
 
-module.exports = { createJob, getJob, listJobs };
+module.exports = { createJob, getJob, listJobs, updateJobItem, updateJobStatus };

@@ -5,6 +5,7 @@ const bodyParser = require("body-parser");
 const { checkHashes, addHashes, getAll } = require("./db/simpleHashes");
 const { createFile } = require("./db/files");
 const { createJob } = require("./db/jobs");
+const { enqueueJob, startWorker } = require('./queue');
 const { signToken, verifyToken, requireAuth } = require('./auth');
 
 const app = express();
@@ -115,6 +116,13 @@ app.post("/api/files/create", async (req, res) => {
     // If job persistence fails, log and continue — still return the ephemeral jobs
     console.error('createJob failed:', String(err));
   }
+
+  // Enqueue job for URL generation if queue is available
+  try {
+    if (jobRec && process.env.REDIS_URL) {
+      enqueueJob(jobRec.id).catch((e) => console.error('enqueueJob failed:', String(e)));
+    }
+  } catch (e) {}
 
   // Broadcast a job_ready message to all WebSocket clients, include fileId and job info
   broadcast({ type: "job_ready", fileId: fileRec.id, fileName, fileSize, jobs, job: jobRec });
@@ -263,6 +271,18 @@ server.listen(PORT, () => {
     }
   } catch (err) {
     console.error('Prisma client check failed:', String(err));
+  }
+
+  // If Redis is configured, start the queue worker and wire broadcast events
+  try {
+    if (process.env.REDIS_URL) {
+      startWorker({ onUpdate: (ev) => broadcast(ev) });
+      console.log('Queue worker: started (connected to REDIS_URL)');
+    } else {
+      console.log('Queue worker: REDIS_URL not set, queue disabled (in-memory flow only)');
+    }
+  } catch (err) {
+    console.error('Queue worker startup failed:', String(err));
   }
 });
 
