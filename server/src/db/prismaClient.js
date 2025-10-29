@@ -5,6 +5,12 @@ let enabled = false;
 function tryInit() {
   if (prisma !== null || enabled) return;
   try {
+    // If DATABASE_URL is not set, avoid initializing PrismaClient — use in-memory fallback
+    if (!process.env.DATABASE_URL) {
+      prisma = null;
+      enabled = false;
+      return;
+    }
     const { PrismaClient } = require('@prisma/client');
     prisma = new PrismaClient();
     enabled = true;

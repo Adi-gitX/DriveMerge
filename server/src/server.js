@@ -4,6 +4,7 @@ const WebSocket = require("ws");
 const bodyParser = require("body-parser");
 const { checkHashes, addHashes, getAll } = require("./db/simpleHashes");
 const { createFile } = require("./db/files");
+const { createJob } = require("./db/jobs");
 const { signToken, verifyToken, requireAuth } = require('./auth');
 
 const app = express();
@@ -106,11 +107,20 @@ app.post("/api/files/create", async (req, res) => {
     updateFile(fileRec.id, { ownerId });
   }
 
-  // Broadcast a job_ready message to all WebSocket clients, include fileId
-  broadcast({ type: "job_ready", fileId: fileRec.id, fileName, fileSize, jobs });
+  // Persist a Job record (PoC) containing per-chunk items and broadcast job_ready
+  let jobRec = null;
+  try {
+    jobRec = await createJob({ fileId: fileRec.id, items: jobs });
+  } catch (err) {
+    // If job persistence fails, log and continue — still return the ephemeral jobs
+    console.error('createJob failed:', String(err));
+  }
 
-  // Respond with the jobs and fileId
-  res.json({ fileId: fileRec.id, fileName, fileSize, jobs });
+  // Broadcast a job_ready message to all WebSocket clients, include fileId and job info
+  broadcast({ type: "job_ready", fileId: fileRec.id, fileName, fileSize, jobs, job: jobRec });
+
+  // Respond with the jobs and fileId (include persisted job if available)
+  res.json({ fileId: fileRec.id, fileName, fileSize, jobs, job: jobRec });
 });
 
 // PoC endpoint to simulate commit of uploaded chunks (client can call after upload)
@@ -130,6 +140,17 @@ app.get("/api/hashes", async (req, res) => {
   try {
     const rows = await getAll();
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Admin: list jobs (PoC)
+app.get('/api/jobs', async (req, res) => {
+  try {
+    const { listJobs } = require('./db/jobs');
+    const rows = await listJobs();
+    res.json({ jobs: rows });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

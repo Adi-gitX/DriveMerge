@@ -17,6 +17,7 @@ model File {
   note              String?
   createdAt         DateTime @default(now())
   chunks            Chunk[]
+  jobs              Job[]
 }
 
 model Chunk {
@@ -34,4 +35,22 @@ model Hash {
   id      String @id @default(cuid())
   sha256  String @unique @db.VarChar(128)
   refCount Int   @default(0)
+}
+
+model Job {
+  id        String    @id @default(cuid())
+  file      File      @relation(fields: [fileId], references: [id])
+  fileId    String
+  createdAt DateTime  @default(now())
+  status    String    @default("pending")
+  items     JobItem[]
+}
+
+model JobItem {
+  id        String   @id @default(cuid())
+  job       Job      @relation(fields: [jobId], references: [id])
+  jobId     String
+  hash      String   @db.VarChar(128)
+  status    String   @default("needs_upload")
+  uploadUrl String?
 }
