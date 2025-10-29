@@ -1,0 +1,15 @@
+{
+  "name": "drivemerge-monorepo",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"yarn workspace drivemerge-client dev\" \"yarn workspace drivemerge-server dev\"",
+    "install:all": "yarn install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}
