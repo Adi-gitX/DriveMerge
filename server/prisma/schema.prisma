@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model File {
+  id                String   @id @default(cuid())
+  fileName          String?
+  fileSize          Int?
+  wrappedFileKey    String?
+  wrappedFileKeyIv  String?
+  ownerId           String?  @db.VarChar(191)
+  note              String?
+  createdAt         DateTime @default(now())
+  chunks            Chunk[]
+}
+
+model Chunk {
+  id              String  @id @default(cuid())
+  file            File    @relation(fields: [fileId], references: [id])
+  fileId          String
+  hash            String  @db.VarChar(128)
+  size            Int?
+  wrappedChunkKey String?
+  wrapIv          String?
+  chunkIv         String?
+}
+
+model Hash {
+  id      String @id @default(cuid())
+  sha256  String @unique @db.VarChar(128)
+  refCount Int   @default(0)
+}
